@@ -1204,7 +1204,7 @@ class PymataCore:
         :param stepper_pins: list of pin numbers necessary for driving stepper
         :returns: No return value.
         """
-        interface_byte = (motor_type << 4) + 
+        interface_byte = (motor_type << 4) + \
             (int(math.log(microstepping,2)) << 1) + enable_pin
         data = [PrivateConstants.ACCELSTEPPER_CONFIGURE, motor_number, interface_byte]
         for pin in range(len(stepper_pins)):

@@ -683,7 +683,7 @@ class PyMata3:
             exponent_shift = 0
             manitssa = int(mantissa)
         final_exponent = exponent + exponent_shift + 11
-        accelstepper_float = mantissa + (final_exponent << 23) + 
+        accelstepper_float = mantissa + (final_exponent << 23) + \
             (sign_bit << 27)
         task = asyncio.ensure_future(self.core.stepper_set_speed(
             motor_number, steps_per_second))
