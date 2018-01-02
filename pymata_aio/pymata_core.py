@@ -21,6 +21,7 @@ import glob
 import logging
 import sys
 import time
+import math
 
 import serial
 
@@ -1190,21 +1191,85 @@ class PymataCore:
         value = sonar_pin_entry[1]
         return value
 
-    async def stepper_config(self, steps_per_revolution, stepper_pins):
+    async def accelstepper_config(self, motor_number, motor_type, microstepping,
+            enable_pin_present, stepper_pins):
         """
         Configure stepper motor prior to operation.
         This is a FirmataPlus feature.
 
+        :param motor_number: identifier for motor [0-9]
+        :param motor_type: electronic interface with motor - 1 = driver, 2 = two-wire, 3 = three-wire, 4 = four-wire
+        :param microstepping: level of microstepping, denominator only, e.g. 64 = 1/64th microstepping
+        :param enable_pin_present: does the motor have an enable pin? [0,1]
+        :param stepper_pins: list of pin numbers necessary for driving stepper
+        :returns: No return value.
+        """
+        interface_byte = (motor_type << 4) + 
+            (int(math.log(microstepping,2)) << 1) + enable_pin
+        data = [PrivateConstants.ACCELSTEPPER_CONFIGURE, motor_number, interface_byte]
+        for pin in range(len(stepper_pins)):
+            data.append(stepper_pins[pin])
+        await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
+
+    async def accelstepper_step(self, motor_number, number_of_steps):
+        """
+        Move a stepper motor for the number of steps at the specified speed
+        This is a FirmataPlus feature.
+
+        :param motor_number: identifier for motor [0-9]
+        :param number_of_steps: 32 bits for number of steps & direction
+                                positive (0 sign bit) is forward, negative (1 sign bit) is reverse
+                                sign should be MSB
+        :returns: No return value.
+        """
+        data = [PrivateConstants.ACCELSTEPPER_STEP, motor_number, 
+                number_of_steps & 0x7f, (number_of_steps >> 7) & 0x7f,
+                (number_of_steps >> 14) & 0x7f, (number_of_steps >> 21) & 0x7f,
+                (number_of_steps >> 28) & 0x0f]
+        await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
+
+    async def accelstepper_set_speed(self, motor_number, speed):
+        """
+        Set the (max) speed of a stepper motor.
+        This is a FirmataPlus feature.
+
+        :param motor_number: identifier for motor [0-9]
+        :param speed: 28 bits in accelStepperFirmata's custom float format
+                    23 bits for a mantissa, 4 for a scientific notation
+                    exponent, and one for a sign (1 = negative)
+        :returns: No return value.
+        """
+        data = [PrivateConstants.ACCELSTEPPER_SET_SPEED, motor_number, 
+                speed & 0x7f, (speed >> 7) & 0x7f,
+                (speed >> 14) & 0x7f, (speed >> 21) & 0x7f]
+        await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
+
+    async def accelstepper_stop(self, motor_number):
+        """
+        Immediately halt the movement of a stepper motor.
+        This is a FirmataPlus feature.
+
+        :param motor_number: identifier for motor [0-9]
+        :returns: No return value.
+        """
+        data = [PrivateConstants.ACCELSTEPPER_STOP, motor_number]
+        await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
+
+    async def stepper_config(self, steps_per_revolution, stepper_pins):
+        """
+        Configure stepper motor prior to operation.
+        This is a FirmataPlus feature.
+        
         :param steps_per_revolution: number of steps per motor revolution
         :param stepper_pins: a list of control pin numbers - either 4 or 2
         :returns: No return value.
         """
         data = [PrivateConstants.STEPPER_CONFIGURE, steps_per_revolution & 0x7f,
-                (steps_per_revolution >> 7) & 0x7f]
+            (steps_per_revolution >> 7) & 0x7f]
         for pin in range(len(stepper_pins)):
             data.append(stepper_pins[pin])
         await self._send_sysex(PrivateConstants.STEPPER_DATA, data)
-
+    
     async def stepper_step(self, motor_speed, number_of_steps):
         """
         Move a stepper motor for the number of steps at the specified speed

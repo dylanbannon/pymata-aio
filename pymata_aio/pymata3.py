@@ -18,6 +18,8 @@
 
 import asyncio
 
+from decimal import Decimal
+
 try:
     from pymata_core import PymataCore
 except ImportError:
@@ -387,11 +389,8 @@ class PyMata3:
                         Constants.CB_TYPE_ASYNCIO = asyncio coroutine
         :returns: No return value        """
 
-        task = asyncio.ensure_future(self.core.i2c_read_request(address, register,
-                                                                number_of_bytes,
-                                                                read_type,
-                                                                cb,
-                                                                cb_type))
+        task = asyncio.ensure_future(self.core.i2c_read_request(address, 
+            register, number_of_bytes, read_type, cb, cb_type))
         self.loop.run_until_complete(task)
 
     def i2c_write_request(self, address, args):
@@ -413,8 +412,10 @@ class PyMata3:
         keep_alive_sent = period - (period * margin)
 
 
-        :param period: Time period between keepalives. Range is 0-10 seconds. 0 disables the keepalive mechanism.
-        :param margin: Safety margin to assure keepalives are sent before period expires. Range is 0.1 to 0.9
+        :param period: Time period between keepalives. Range is 0-10 seconds. 
+                       0 disables the keepalive mechanism.
+        :param margin: Safety margin to assure keepalives are sent before 
+                       period expires. Range is 0.1 to 0.9
         :returns: No return value
         """
         asyncio.ensure_future(self.core.keep_alive(period, margin))
@@ -424,9 +425,11 @@ class PyMata3:
         This method will call the Tone library for the selected pin.
         It requires FirmataPlus to be loaded onto the arduino
 
-        If the tone command is set to TONE_TONE, then the specified tone will be played.
+        If the tone command is set to TONE_TONE, then the specified tone will 
+        be played.
 
-        Else, if the tone command is TONE_NO_TONE, then any currently playing tone will be disabled.
+        Else, if the tone command is TONE_NO_TONE, then any currently playing 
+        tone will be disabled.
 
 
         :param pin: Pin number
@@ -600,18 +603,113 @@ class PyMata3:
                                                             max_distance, cb_type))
         self.loop.run_until_complete(task)
 
+    def accelstepper_config(self, motor_number, motor_type, microstepping, 
+            enable_pin_present, stepper_pins):
+        """
+        Configure stepper motor prior to operation using the AccelStepper
+        functionality.
+        This is a FirmataPlus feature.
+
+        :param motor_number: identifier for motor [0-9]
+        :param motor_type: electronic interface with motor - 1 = driver, 2 = two-wire, 3 = three-wire, 4 = four-wire
+        :param microstepping: level of microstepping, denominator only, e.g. 64 = 1/64th microstepping
+        :param enable_pin_present: does the motor have an enable pin? [0,1]
+        :param stepper_pins: list of pin numbers necessary for driving stepper
+        :returns: No return value.
+
+        """
+        task = asyncio.ensure_future(self.core.acceltepper_config(motor_number, 
+            motor_type, microstepping, enable_pin_present, stepper_pins))
+        self.loop.run_until_complete(task)
+
+    def accelstepper_step(self, motor_number, number_of_steps, direction):
+        """
+        Move a stepper motor for the number of steps at the specified speed
+        This is a FirmataPlus feature.
+
+        :param motor_number: identifier for motor [0-9]
+        :param number_of_steps: 31 bits for number of steps
+        :param direction: "forward" or "backward"
+        """
+        if direction=="forward":
+            signed_number_of_steps = number_of_steps
+        elif direction=="backward":
+            signed_number_of_steps = (1 << 31) + number_of_steps
+
+        task = asyncio.ensure_future(self.core.stepper_step(motor_number,
+            signed_number_of_steps))
+        self.loop.run_until_complete(task)
+
+    def accelstepper_set_speed(self, motor_number, steps_per_second):
+        """
+        Set the (max) speed of a stepper motor.
+        This is a FirmataPlus feature.
+
+        :param motor_number: identifier for motor [0-9]
+        :param steps_per_second: number of steps per second
+        """
+        # This function needs to turn the steps_per_second and direction
+        # variable into a float in AccelStepperFirmata's custom float 
+        # format.
+        # First, steps_per_second will be turned into a float, if it's
+        # not already one, and separated into (sign, mantiss, exponent) 
+        # components using the Decimal.as_tuple() function.
+        # Then, the float's mantissa will be manipulated to extract the 
+        # largest number that can be expressed with 23 bits, i.e.
+        # num <= 8388607.
+        # At the same time, the shift in decimal places necessary for this 
+        # truncation will be recorded.
+        # Then, the exponent will be calculated by adding the mantissa 
+        # shifting, the exponent from the float itself, and +11.
+        # Finally, this will all be concatenated bitwise in the order 
+        # [mantissa, exponent, sign] as accelstepper_float.
+        if steps_per_second > 0:
+            sign_bit = 0
+        elif steps_per_second < 0:
+            sign_bit = 1
+        steps_per_second = float(steps_per_second)
+        (sign_bit, digits, exponent) = Decimal(steps_per_second).as_tuple()
+        mantissa = ''
+        for digit in digits:
+            mantissa += str(digit)
+            if int(mantissa) > 8388607:
+                mantissa = mantissa[:-1]
+                exponent_shift = len(digits) - len(mantissa)
+                mantissa = int(mantissa)
+                break
+        else:
+            # realistically, this shouldn't be encountered because floats
+            # (always?) have very long mantissas in Python
+            exponent_shift = 0
+            manitssa = int(mantissa)
+        final_exponent = exponent + exponent_shift + 11
+        accelstepper_float = mantissa + (final_exponent << 23) + 
+            (sign_bit << 27)
+        task = asyncio.ensure_future(self.core.stepper_set_speed(
+            motor_number, steps_per_second))
+        self.loop.run_until_complete(task)
+
+    def accelstepper_stop(self, motor_number):
+        """
+        Immediately halt the movement of a stepper motor.
+        This is a FirmataPlus feature.
+
+        :param motor_number: identifier for motor [0-9]
+        """
+        task = asyncio.ensure_future(self.core.stepper_stop(motor_number))
+        self.loop.run_until_complete(task)
+
     def stepper_config(self, steps_per_revolution, stepper_pins):
         """
         Configure stepper motor prior to operation.
         This is a FirmataPlus feature.
-
+                                        
         :param steps_per_revolution: number of steps per motor revolution
         :param stepper_pins: a list of control pin numbers - either 4 or 2
         :returns: No return value
-
         """
         task = asyncio.ensure_future(self.core.stepper_config(steps_per_revolution,
-                                                              stepper_pins))
+            stepper_pins))
         self.loop.run_until_complete(task)
 
     def stepper_step(self, motor_speed, number_of_steps):
