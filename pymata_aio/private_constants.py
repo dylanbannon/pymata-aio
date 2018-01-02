@@ -50,6 +50,7 @@ class PrivateConstants:
 
     SERVO_CONFIG = 0x70  # set servo pin and max and min angles
     STRING_DATA = 0x71  # a string message with 14-bits per char
+    ACCELSTEPPER_DATA = 0x62  # AccelStepper motor command
     STEPPER_DATA = 0x72  # Stepper motor command
     I2C_REQUEST = 0x76  # send an I2C read/write request
     I2C_REPLY = 0x77  # a reply to an I2C read request
@@ -93,6 +94,22 @@ class PrivateConstants:
     STEPPER_CONFIGURE = 0  # configure a stepper motor for operation
     STEPPER_STEP = 1  # command a motor to move at the provided speed
     STEPPER_LIBRARY_VERSION = 2  # used to get stepper library version number
+
+    # AccelStepper Stepper Motor Sub-commands
+    ACCELSTEPPER_CONFIGURE = 0x00  # configure a stepper motor for operation
+    ACCELSTEPPER_ZERO = 0x01  # set the current position of the motor as the zero point
+    ACCELSTEPPER_STEP = 0x02  # move the stepper a set distance
+    ACCELSTEPPER_TO = 0x03  # move the stepper to a position a set distance from the zero point
+    ACCELSTEPPER_ENABLE = 0x04  # if the stepper has an enable pin, use this command to toggle the pin
+    ACCELSTEPPER_STOP = 0x05  # stop the stepper's current movement immediately
+    ACCELSTEPPER_REPORT_POSITION = 0x06  # request the stepper's position
+    ACCELSTEPPER_LIMIT = 0x07  # *not yet implemented in ConfigurableFirmata*
+    ACCELSTEPPER_SET_ACCELERATION = 0x08  # set the stepper's acceleration/deceleration
+    ACCELSTEPPER_SET_SPEED = 0x09  # set the stepper's speed (maximum speed in situations where acceleration is set)
+    ACCELSTEPPER_MULTISTEPPER_CONFIGURATION = 0x20  # create a multiStepper group
+    ACCELSTEPPER_MULTISTEPPER_TO = 0x21  # move steppers in multiStepper group to given position
+    ACCELSTEPPER_MULTISTEPPER_STOP = 0x23  # immediately stop all steppers in multiStepper group
+
 
     # Pixy sub commands
     PIXY_INIT = 0  # Initialize the Pixy object and set the max number of blocks to report
