@@ -42,7 +42,8 @@ class PrivateConstants:
     TONE_DATA = 0x5F  # play a tone at a specified frequency and duration
     ENCODER_CONFIG = 0x60  # create and enable encoder object
     ENCODER_DATA = 0x61  # current encoder position data
-    SONAR_CONFIG = 0x62  # configure pins to control a sonar distance device
+    ACCELSTEPPER_DATA = 0x62  # AccelStepper motor command
+    #SONAR_CONFIG = 0x62  # configure pins to control a sonar distance device
     SONAR_DATA = 0x63  # distance data returned
     PIXY_CONFIG = 0x64  # configure the Pixy.  Configure has 4 subcommands
     PIXY_DATA = 0x65  # blocks data returned
@@ -50,7 +51,6 @@ class PrivateConstants:
 
     SERVO_CONFIG = 0x70  # set servo pin and max and min angles
     STRING_DATA = 0x71  # a string message with 14-bits per char
-    ACCELSTEPPER_DATA = 0x62  # AccelStepper motor command
     STEPPER_DATA = 0x72  # Stepper motor command
     I2C_REQUEST = 0x76  # send an I2C read/write request
     I2C_REPLY = 0x77  # a reply to an I2C read request
