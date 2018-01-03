@@ -121,8 +121,10 @@ class PymataCore:
                                    PrivateConstants.ENCODER_DATA:
                                        self._encoder_data,
                                    PrivateConstants.PIXY_DATA:
-                                       self._pixy_data}
-
+                                       self._pixy_data,
+                                   PrivateConstants.ACCELSTEPPER_DATA:
+                                       self._accelstepper_data}
+        
         # report query results are stored in this dictionary
         self.query_reply_data = {PrivateConstants.REPORT_VERSION: '',
                                  PrivateConstants.STRING_DATA: '',
@@ -1205,10 +1207,12 @@ class PymataCore:
         :returns: No return value.
         """
         interface_byte = (motor_type << 4) + \
-            (int(math.log(microstepping,2)) << 1) + enable_pin
-        data = [PrivateConstants.ACCELSTEPPER_CONFIGURE, motor_number, interface_byte]
+            ( (int(math.log(microstepping,2))-1) << 1) + enable_pin_present
+        data = [PrivateConstants.ACCELSTEPPER_CONFIGURE, motor_number, 
+            interface_byte]
         for pin in range(len(stepper_pins)):
             data.append(stepper_pins[pin])
+        print("stepper_config_data: " + str(data))
         await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
 
     async def accelstepper_step(self, motor_number, number_of_steps):
@@ -1226,6 +1230,7 @@ class PymataCore:
                 number_of_steps & 0x7f, (number_of_steps >> 7) & 0x7f,
                 (number_of_steps >> 14) & 0x7f, (number_of_steps >> 21) & 0x7f,
                 (number_of_steps >> 28) & 0x0f]
+        print("stepper_step_data: " + str(data))
         await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
 
     async def accelstepper_set_speed(self, motor_number, speed):
@@ -1242,6 +1247,7 @@ class PymataCore:
         data = [PrivateConstants.ACCELSTEPPER_SET_SPEED, motor_number, 
                 speed & 0x7f, (speed >> 7) & 0x7f,
                 (speed >> 14) & 0x7f, (speed >> 21) & 0x7f]
+        print("stepper_ste_speed:" + str(data))
         await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
 
     async def accelstepper_stop(self, motor_number):
@@ -1366,6 +1372,8 @@ class PymataCore:
                         await asyncio.sleep(self.sleep_tune)
                         next_command_byte = await self.read()
                         sysex.append(next_command_byte)
+                    print(str(sysex))
+                    print(str(self.command_dictionary[sysex[0]]))
                     await self.command_dictionary[sysex[0]](sysex)
                     sysex = []
                     await asyncio.sleep(self.sleep_tune)
@@ -1583,6 +1591,26 @@ class PymataCore:
                 loop = self.loop
                 loop.call_soon(self.digital_pins[PrivateConstants.PIN_PIXY_MOSI].cb, blocks)
 
+    async def _accelstepper_data(self, data):
+        """
+        This is a private message handler method.
+        It handles accelStepper data messages.
+
+        :param data: accelStepper data
+        :returns: None - but update is saved in the digital pins structure
+        """
+        # strip off ACCELSTEPPER_DATA start and SYSEX end
+        data = data[1:-1]
+        # Check next byte to determine type of message
+        if int(data[0]) == 11:
+            # move complete message
+            position = data[1] + (data[2] << 7) + (data[3] << 14) + \
+                    (data[4] << 21) + ( (data[5] & 0x07) << 28 )
+            sign_bit = data[5] & 0x08
+            if sign_bit:
+                position = position * -1
+        print("Position: " + str(position))
+
     async def _i2c_reply(self, data):
         """
         This is a private message handler method.
@@ -1647,6 +1675,8 @@ class PymataCore:
         :param sysex_data: Sysex data sent from Firmata
         :returns: None
         """
+        print("inside _reporting_firmware")
+        print(str(sysex_data))
         # first byte after command is major number
         major = sysex_data[1]
         version_string = str(major)
@@ -1671,7 +1701,7 @@ class PymataCore:
         # to the version string
         for e in name:
             version_string += chr(e)
-
+        
         # store the value
         self.query_reply_data[PrivateConstants.REPORT_FIRMWARE] = version_string
 

@@ -17,6 +17,7 @@
 
 
 import asyncio
+import pdb
 
 from decimal import Decimal
 
@@ -618,8 +619,9 @@ class PyMata3:
         :returns: No return value.
 
         """
-        task = asyncio.ensure_future(self.core.acceltepper_config(motor_number, 
-            motor_type, microstepping, enable_pin_present, stepper_pins))
+        task = asyncio.ensure_future(self.core.accelstepper_config(
+            motor_number, motor_type, microstepping, enable_pin_present, 
+            stepper_pins))
         self.loop.run_until_complete(task)
 
     def accelstepper_step(self, motor_number, number_of_steps, direction):
@@ -631,12 +633,16 @@ class PyMata3:
         :param number_of_steps: 31 bits for number of steps
         :param direction: "forward" or "backward"
         """
+        # We need to ensure that the number_of_steps is truncated to 31 bits.
+        number_of_steps = int(number_of_steps)
+        if number_of_steps > 2147483647:
+            number_of_steps = 2147483647
         if direction=="forward":
             signed_number_of_steps = number_of_steps
         elif direction=="backward":
             signed_number_of_steps = (1 << 31) + number_of_steps
 
-        task = asyncio.ensure_future(self.core.stepper_step(motor_number,
+        task = asyncio.ensure_future(self.core.accelstepper_step(motor_number,
             signed_number_of_steps))
         self.loop.run_until_complete(task)
 
@@ -681,12 +687,12 @@ class PyMata3:
             # realistically, this shouldn't be encountered because floats
             # (always?) have very long mantissas in Python
             exponent_shift = 0
-            manitssa = int(mantissa)
+            mantissa = int(mantissa)
         final_exponent = exponent + exponent_shift + 11
         accelstepper_float = mantissa + (final_exponent << 23) + \
             (sign_bit << 27)
-        task = asyncio.ensure_future(self.core.stepper_set_speed(
-            motor_number, steps_per_second))
+        task = asyncio.ensure_future(self.core.accelstepper_set_speed(
+            motor_number, accelstepper_float))
         self.loop.run_until_complete(task)
 
     def accelstepper_stop(self, motor_number):
