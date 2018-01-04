@@ -333,6 +333,7 @@ class PymataCore:
                 sys.exit(0)
 
         # custom assemble the pin lists
+        logging.debug("pins: " + str(report))
         for pin in report:
             digital_data = PinData()
             self.digital_pins.append(digital_data)
@@ -1207,12 +1208,12 @@ class PymataCore:
         :returns: No return value.
         """
         interface_byte = (motor_type << 4) + \
-            ( (int(math.log(microstepping,2))-1) << 1) + enable_pin_present
+            ( int(math.log(microstepping,2)) << 1) + enable_pin_present
         data = [PrivateConstants.ACCELSTEPPER_CONFIGURE, motor_number, 
             interface_byte]
         for pin in range(len(stepper_pins)):
             data.append(stepper_pins[pin])
-        print("stepper_config_data: " + str(data))
+        logging.debug("stepper_config_data: " + str(data))
         await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
 
     async def accelstepper_step(self, motor_number, number_of_steps):
@@ -1230,7 +1231,7 @@ class PymataCore:
                 number_of_steps & 0x7f, (number_of_steps >> 7) & 0x7f,
                 (number_of_steps >> 14) & 0x7f, (number_of_steps >> 21) & 0x7f,
                 (number_of_steps >> 28) & 0x0f]
-        print("stepper_step_data: " + str(data))
+        logging.debug("stepper_step_data: " + str(data))
         await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
 
     async def accelstepper_set_speed(self, motor_number, speed):
@@ -1247,7 +1248,7 @@ class PymataCore:
         data = [PrivateConstants.ACCELSTEPPER_SET_SPEED, motor_number, 
                 speed & 0x7f, (speed >> 7) & 0x7f,
                 (speed >> 14) & 0x7f, (speed >> 21) & 0x7f]
-        print("stepper_ste_speed:" + str(data))
+        logging.debug("stepper_ste_speed:" + str(data))
         await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
 
     async def accelstepper_stop(self, motor_number):
@@ -1372,8 +1373,9 @@ class PymataCore:
                         await asyncio.sleep(self.sleep_tune)
                         next_command_byte = await self.read()
                         sysex.append(next_command_byte)
-                    print(str(sysex))
-                    print(str(self.command_dictionary[sysex[0]]))
+                    logging.debug("Incoming:")
+                    logging.debug(str(sysex))
+                    logging.debug(str(self.command_dictionary[sysex[0]]))
                     await self.command_dictionary[sysex[0]](sysex)
                     sysex = []
                     await asyncio.sleep(self.sleep_tune)
@@ -1387,6 +1389,9 @@ class PymataCore:
                     command.append(pin)
                     # get the next 2 bytes for the command
                     command = await self._wait_for_data(command, 2)
+                    logging.debug("Incoming:")
+                    logging.debug(str(next_command_byte))
+                    logging.debug(str(command))
                     # process the analog message
                     await self._analog_message(command)
                 # handle the digital message
@@ -1395,6 +1400,8 @@ class PymataCore:
                     pin = next_command_byte & 0x0f
                     command.append(pin)
                     command = await self._wait_for_data(command, 2)
+                    logging.debug("Incoming:")
+                    logging.debug(str(command))
                     await self._digital_message(command)
                 # handle all other messages by looking them up in the
                 # command dictionary
@@ -1450,17 +1457,22 @@ class PymataCore:
         pin = data[0]
         value = (data[PrivateConstants.MSB] << 7) + data[PrivateConstants.LSB]
         # if self.analog_pins[pin].current_value != value:
-        self.analog_pins[pin].current_value = value
+        # There seems to be a problem of the board sending info about pins
+        # during startup before pymata has time to populate the pin list.
+        try:
+            self.analog_pins[pin].current_value = value
 
-        # append pin number, pin value, and pin type to return value and return as a list
-        message = [pin, value, Constants.ANALOG]
+            # append pin number, pin value, and pin type to return value and return as a list
+            message = [pin, value, Constants.ANALOG]
 
-        if self.analog_pins[pin].cb:
-            if self.analog_pins[pin].cb_type:
-                await self.analog_pins[pin].cb(message)
-            else:
-                loop = self.loop
-                loop.call_soon(self.analog_pins[pin].cb, message)
+            if self.analog_pins[pin].cb:
+                if self.analog_pins[pin].cb_type:
+                    await self.analog_pins[pin].cb(message)
+                else:
+                    loop = self.loop
+                    loop.call_soon(self.analog_pins[pin].cb, message)
+        except IndexError:
+            pass
 
         # is there a latch entry for this pin?
         key = 'A' + str(pin)
@@ -1597,7 +1609,6 @@ class PymataCore:
         It handles accelStepper data messages.
 
         :param data: accelStepper data
-        :returns: None - but update is saved in the digital pins structure
         """
         # strip off ACCELSTEPPER_DATA start and SYSEX end
         data = data[1:-1]
@@ -1675,8 +1686,6 @@ class PymataCore:
         :param sysex_data: Sysex data sent from Firmata
         :returns: None
         """
-        print("inside _reporting_firmware")
-        print(str(sysex_data))
         # first byte after command is major number
         major = sysex_data[1]
         version_string = str(major)
@@ -1963,7 +1972,10 @@ class PymataCore:
         for i in command:
             send_message += chr(i)
         result = None
+        
+        logging.debug("Outgoing: ")
         for data in send_message:
+            logging.debug(hex(ord(data)))
             try:
                 result = await self.write(data)
             except():
@@ -1993,7 +2005,9 @@ class PymataCore:
                 sysex_message += chr(d)
         sysex_message += chr(PrivateConstants.END_SYSEX)
 
+        logging.debug("Outgoing: ")
         for data in sysex_message:
+            logging.debug(hex(ord(data)))
             await self.write(data)
 
     async def _wait_for_data(self, current_command, number_of_bytes):
