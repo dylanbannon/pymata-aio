@@ -1207,8 +1207,15 @@ class PymataCore:
         :param stepper_pins: list of pin numbers necessary for driving stepper
         :returns: No return value.
         """
+        logging.debug("stepper config info")
+        logging.debug("motor_type: " + str(motor_type))
+        logging.debug("motor_type after shifting: " + str(motor_type << 4))
+        logging.debug("microstepping: " + str(microstepping))
+        logging.debug("microstepping base2 shifted: " + str(int(math.log(microstepping,2)) << 1))
+        logging.debug("enable_pin_present: " + str(enable_pin_present))
         interface_byte = (motor_type << 4) + \
             ( int(math.log(microstepping,2)) << 1) + enable_pin_present
+        logging.debug("interface_byte: " + str(interface_byte))
         data = [PrivateConstants.ACCELSTEPPER_CONFIGURE, motor_number, 
             interface_byte]
         for pin in range(len(stepper_pins)):
