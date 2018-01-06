@@ -1627,7 +1627,7 @@ class PymataCore:
             sign_bit = data[5] & 0x08
             if sign_bit:
                 position = position * -1
-        print("Position: " + str(position))
+            print("Position: " + str(position))
 
     async def _i2c_reply(self, data):
         """
