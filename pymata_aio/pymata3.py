@@ -702,7 +702,7 @@ class PyMata3:
 
         :param motor_number: identifier for motor [0-9]
         """
-        task = asyncio.ensure_future(self.core.stepper_stop(motor_number))
+        task = asyncio.ensure_future(self.core.accelstepper_stop(motor_number))
         self.loop.run_until_complete(task)
 
     def stepper_config(self, steps_per_revolution, stepper_pins):
