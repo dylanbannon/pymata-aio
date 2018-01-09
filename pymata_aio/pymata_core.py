@@ -1223,6 +1223,17 @@ class PymataCore:
         logging.debug("stepper_config_data: " + str(data))
         await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
 
+    async def accelstepper_zero(self, motor_number):
+        """
+        Set the current position of the stepper motor as the zero point.
+
+        :param motor_number: identifier for motor [0-9]
+        :returns: No return value.
+        """
+        data = [PrivateConstants.ACCELSTEPPER_ZERO, motor_number]
+        logging.debug("stepper_zero_data: " + str(data))
+        await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
+
     async def accelstepper_step(self, motor_number, number_of_steps):
         """
         Move a stepper motor for the number of steps at the specified speed
@@ -1267,6 +1278,16 @@ class PymataCore:
         :returns: No return value.
         """
         data = [PrivateConstants.ACCELSTEPPER_STOP, motor_number]
+        await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
+
+    async def accelstepper_report_position(self, motor_number):
+        """
+        Report the motor's position, relative to the zero point.
+
+        :param motor_number: identifier for motor [0-9]
+        :returns: No return value.
+        """
+        data = [PrivateConstants.ACCELSTEPPER_REPORT_POSITION, motor_number]
         await self._send_sysex(PrivateConstants.ACCELSTEPPER_DATA, data)
 
     async def stepper_config(self, steps_per_revolution, stepper_pins):
@@ -1620,8 +1641,16 @@ class PymataCore:
         # strip off ACCELSTEPPER_DATA start and SYSEX end
         data = data[1:-1]
         # Check next byte to determine type of message
-        if int(data[0]) == 11:
+        if int(data[0]) == 0x0b:
             # move complete message
+            position = data[1] + (data[2] << 7) + (data[3] << 14) + \
+                    (data[4] << 21) + ( (data[5] & 0x07) << 28 )
+            sign_bit = data[5] & 0x08
+            if sign_bit:
+                position = position * -1
+            print("Position: " + str(position))
+        elif int(data[0]) == 0x06:
+            # response to position request
             position = data[1] + (data[2] << 7) + (data[3] << 14) + \
                     (data[4] << 21) + ( (data[5] & 0x07) << 28 )
             sign_bit = data[5] & 0x08

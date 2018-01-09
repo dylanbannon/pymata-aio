@@ -624,6 +624,15 @@ class PyMata3:
             stepper_pins))
         self.loop.run_until_complete(task)
 
+    def accelstepper_zero(self, motor_number):
+        """
+        Set the current position of the stepper motor as the zero point.
+
+        :param motor_number: identifier for motor [0-9]
+        """
+        task = asyncio.ensure_future(self.core.accelstepper_zero(motor_number))
+        self.loop.run_until_complete(task)
+
     def accelstepper_step(self, motor_number, number_of_steps, direction):
         """
         Move a stepper motor for the number of steps at the specified speed
@@ -703,6 +712,16 @@ class PyMata3:
         :param motor_number: identifier for motor [0-9]
         """
         task = asyncio.ensure_future(self.core.accelstepper_stop(motor_number))
+        self.loop.run_until_complete(task)
+
+    def accelstepper_report_position(self, motor_number):
+        """
+        Reports the motor's position, relative to the zero point.
+
+        :param motor_number: identifier for motor [0-9]
+        """
+        task = asyncio.ensure_future(self.core.accelstepper_report_position(
+            motor_number))
         self.loop.run_until_complete(task)
 
     def stepper_config(self, steps_per_revolution, stepper_pins):
