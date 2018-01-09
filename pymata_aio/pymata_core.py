@@ -1248,8 +1248,8 @@ class PymataCore:
 
         :param motor_number: identifier for motor [0-9]
         :param speed: 28 bits in accelStepperFirmata's custom float format
-                    23 bits for a mantissa, 4 for a scientific notation
-                    exponent, and one for a sign (1 = negative)
+            23 bits for a mantissa, 4 for a scientific notation
+            exponent, and one for a sign (1 = negative)
         :returns: No return value.
         """
         data = [PrivateConstants.ACCELSTEPPER_SET_SPEED, motor_number, 
